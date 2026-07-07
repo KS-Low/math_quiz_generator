@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>口算练习生成器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Patrick+Hand&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <header class="toolbar">
+    <div class="brand"><span class="brand-mark">✎</span>口算练习生成器</div>
+    <button id="settingsToggle" class="icon-btn" type="button">
+      <span class="gear">⚙</span> 设置
+    </button>
+  </header>
+
+  <div id="overlay" class="overlay" hidden></div>
+
+  <aside id="settingsPanel" class="settings-panel" aria-hidden="true">
+    <div class="settings-panel-inner">
+
+      <div class="settings-header">
+        <h2>练习设置</h2>
+        <button id="closeSettings" class="icon-btn plain" type="button" aria-label="关闭">✕</button>
+      </div>
+
+      <section class="setting-group">
+        <h3>数字范围<span class="hint">同时限制题目中的数字与运算结果</span></h3>
+        <select id="rangeSelect">
+          <option value="10">10 以内</option>
+          <option value="20">20 以内</option>
+          <option value="50">50 以内</option>
+          <option value="100" selected>100 以内</option>
+          <option value="500">500 以内</option>
+          <option value="1000">1000 以内</option>
+          <option value="10000">10000 以内</option>
+          <option value="custom">自定义…</option>
+        </select>
+        <input type="number" id="rangeCustom" min="2" max="1000000" placeholder="输入自定义上限，例如 200" hidden>
+      </section>
+
+      <section class="setting-group">
+        <h3>运算类型<span class="hint">可多选</span></h3>
+        <div class="op-grid">
+          <label class="op-check-label"><input type="checkbox" class="op-check" value="add" checked> <span class="op-sym">＋</span>加法</label>
+          <label class="op-check-label"><input type="checkbox" class="op-check" value="sub"> <span class="op-sym">－</span>减法</label>
+          <label class="op-check-label"><input type="checkbox" class="op-check" value="mul"> <span class="op-sym">×</span>乘法</label>
+          <label class="op-check-label"><input type="checkbox" class="op-check" value="div"> <span class="op-sym">÷</span>除法</label>
+        </div>
+        <p class="warn" id="opWarn" hidden>请至少选择一种运算类型</p>
+      </section>
+
+      <section class="op-options" id="addOptions" hidden>
+        <h4>加法设置</h4>
+        <label class="field-row">是否进位
+          <select id="addCarry">
+            <option value="either">都可以</option>
+            <option value="yes">必须进位</option>
+            <option value="no">不能进位</option>
+          </select>
+        </label>
+        <p class="hint small">数字范围较小时（如 10 以内），"必须进位"可能无法满足，将自动放宽限制</p>
+      </section>
+
+      <section class="op-options" id="subOptions" hidden>
+        <h4>减法设置</h4>
+        <label class="field-row">是否借位
+          <select id="subBorrow">
+            <option value="either">都可以</option>
+            <option value="yes">必须借位</option>
+            <option value="no">不能借位</option>
+          </select>
+        </label>
+        <label class="checkbox-row"><input type="checkbox" id="subNegative"> 允许结果为负数</label>
+        <p class="hint small">数字范围较小时（如 10 以内），"必须借位"可能无法满足，将自动放宽限制</p>
+      </section>
+
+      <section class="op-options" id="mulOptions" hidden>
+        <h4>乘法设置</h4>
+        <label class="field-row">第一个因数位数
+          <select id="mulDigits1">
+            <option value="1">1 位数（1–9）</option>
+            <option value="2">2 位数（10–99）</option>
+            <option value="3">3 位数（100–999）</option>
+          </select>
+        </label>
+        <label class="field-row">第二个因数位数
+          <select id="mulDigits2">
+            <option value="1">1 位数（1–9）</option>
+            <option value="2">2 位数（10–99）</option>
+            <option value="3">3 位数（100–999）</option>
+          </select>
+        </label>
+        <label class="field-row">是否进位
+          <select id="mulCarry">
+            <option value="either">都可以</option>
+            <option value="yes">必须进位</option>
+            <option value="no">不能进位</option>
+          </select>
+        </label>
+        <p class="hint small">若位数设置与数字范围冲突，将优先保证因数位数</p>
+      </section>
+
+      <section class="op-options" id="divOptions" hidden>
+        <h4>除法设置</h4>
+        <label class="field-row">余数情况
+          <select id="divRemainder">
+            <option value="either">都可以</option>
+            <option value="none">必须整除（无余数）</option>
+            <option value="yes">必须有余数</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="setting-group">
+        <h3>题目数量</h3>
+        <input type="number" id="questionCount" min="1" max="100" value="10">
+      </section>
+
+      <button id="generateBtn" class="primary-btn wide" type="button">生成题目</button>
+    </div>
+  </aside>
+
+  <main class="worksheet-wrap">
+    <div class="worksheet" id="worksheet">
+
+      <div class="worksheet-header">
+        <label class="field">姓名 <input type="text" class="underline-input" id="nameInput" placeholder=""></label>
+        <label class="field">日期 <input type="text" class="underline-input" id="dateInput" placeholder=""></label>
+        <div class="field score-field">得分 <span class="underline-static" id="scoreLine">――</span></div>
+      </div>
+
+      <div class="worksheet-title" id="worksheetTitle">口算练习</div>
+
+      <div class="summary-banner" id="summaryBanner" hidden></div>
+
+      <div class="questions-grid" id="questionsGrid">
+        <div class="empty-state" id="emptyState">
+          点击右上角「设置」，选好数字范围和运算类型，就能生成你的第一组题目啦 ✎
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="action-bar" id="actionBar" hidden>
+    <button id="refreshBtn" class="secondary-btn" type="button">🔄 换一批（同条件）</button>
+    <button id="gradeBtn" class="primary-btn" type="button">✅ 提交批改</button>
+  </footer>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
