@@ -301,9 +301,18 @@
       if (q.type === "div" && !q.singleMode) {
         const qVal = card.querySelector('[data-role="quotient"]').value;
         const rVal = card.querySelector('[data-role="remainder"]').value;
-        isCorrect = qVal !== "" && rVal !== "" &&
+
+        // 如果正确答案余数是0，而且学生留空，则视为填了0
+        const userRemainder =
+          (rVal === "" && q.correctAnswer.remainder === 0)
+            ? 0
+            : Number(rVal);
+
+        isCorrect =
+          qVal !== "" &&
+          (rVal !== "" || q.correctAnswer.remainder === 0) &&
           Number(qVal) === q.correctAnswer.quotient &&
-          Number(rVal) === q.correctAnswer.remainder;
+          userRemainder === q.correctAnswer.remainder;
       } else if (q.type === "div") {
         const qVal = card.querySelector('[data-role="quotient"]').value;
         isCorrect = qVal !== "" && Number(qVal) === q.correctAnswer.quotient;
