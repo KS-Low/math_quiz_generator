@@ -796,6 +796,7 @@
     emptyState.hidden = true;
     renderQuestions(currentQuestions);
     actionBar.hidden = false;
+    requestAnimationFrame(updateActionBarHeight);
     closeSettingsPanel();
   }
 
@@ -811,5 +812,163 @@
     currentQuestions = buildQuestions(lastSettings);
     renderQuestions(currentQuestions);
   });
+
+  // ---------- Draft paper ----------
+  const draftToggle = document.getElementById("draftToggle");
+  const draftToggleText = document.getElementById("draftToggleText");
+  const draftDrawer = document.getElementById("draftDrawer");
+  const draftCanvas = document.getElementById("draftCanvas");
+  const colorSwatches = Array.from(document.querySelectorAll(".color-swatch"));
+  const eraserBtn = document.getElementById("eraserBtn");
+  const brushSize = document.getElementById("brushSize");
+  const clearDraftBtn = document.getElementById("clearDraftBtn");
+
+  const draftCtx = draftCanvas.getContext("2d");
+  const draftState = {
+    open: false,
+    drawing: false,
+    color: "#1E3A5F",
+    size: 6,
+    erasing: false,
+    lastX: 0,
+    lastY: 0
+  };
+
+  function updateActionBarHeight() {
+    if (actionBar.hidden) return;
+    const height = Math.ceil(actionBar.getBoundingClientRect().height);
+    if (height > 0) {
+      document.documentElement.style.setProperty("--action-bar-height", `${height}px`);
+    }
+  }
+
+  function resizeDraftCanvas() {
+    const rect = draftCanvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const prev = document.createElement("canvas");
+    prev.width = draftCanvas.width;
+    prev.height = draftCanvas.height;
+    if (prev.width && prev.height) {
+      prev.getContext("2d").drawImage(draftCanvas, 0, 0);
+    }
+
+    draftCanvas.width = Math.max(1, Math.round(rect.width * dpr));
+    draftCanvas.height = Math.max(1, Math.round(rect.height * dpr));
+    draftCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draftCtx.lineCap = "round";
+    draftCtx.lineJoin = "round";
+
+    if (prev.width && prev.height) {
+      draftCtx.save();
+      draftCtx.setTransform(1, 0, 0, 1, 0, 0);
+      draftCtx.drawImage(prev, 0, 0, draftCanvas.width, draftCanvas.height);
+      draftCtx.restore();
+      draftCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+  }
+
+  function setDraftOpen(open) {
+    draftState.open = open;
+    document.body.classList.toggle("draft-open", open);
+    draftDrawer.classList.toggle("open", open);
+    draftToggle.classList.toggle("open", open);
+    draftDrawer.setAttribute("aria-hidden", String(!open));
+    draftToggle.setAttribute("aria-expanded", String(open));
+    draftToggleText.textContent = open ? "收起草稿" : "草稿";
+    if (open) {
+      requestAnimationFrame(resizeDraftCanvas);
+    }
+  }
+
+  function getDraftPoint(evt) {
+    const rect = draftCanvas.getBoundingClientRect();
+    return {
+      x: evt.clientX - rect.left,
+      y: evt.clientY - rect.top
+    };
+  }
+
+  function prepareDraftStroke() {
+    draftCtx.globalCompositeOperation = draftState.erasing ? "destination-out" : "source-over";
+    draftCtx.strokeStyle = draftState.color;
+    draftCtx.lineWidth = draftState.erasing ? draftState.size * 2 : draftState.size;
+  }
+
+  function beginDraftStroke(evt) {
+    evt.preventDefault();
+    draftState.drawing = true;
+    const point = getDraftPoint(evt);
+    draftState.lastX = point.x;
+    draftState.lastY = point.y;
+    draftCanvas.setPointerCapture(evt.pointerId);
+    prepareDraftStroke();
+    draftCtx.beginPath();
+    draftCtx.moveTo(point.x, point.y);
+    draftCtx.lineTo(point.x, point.y);
+    draftCtx.stroke();
+  }
+
+  function continueDraftStroke(evt) {
+    if (!draftState.drawing) return;
+    evt.preventDefault();
+    const point = getDraftPoint(evt);
+    prepareDraftStroke();
+    draftCtx.beginPath();
+    draftCtx.moveTo(draftState.lastX, draftState.lastY);
+    draftCtx.lineTo(point.x, point.y);
+    draftCtx.stroke();
+    draftState.lastX = point.x;
+    draftState.lastY = point.y;
+  }
+
+  function endDraftStroke(evt) {
+    if (!draftState.drawing) return;
+    draftState.drawing = false;
+    if (draftCanvas.hasPointerCapture(evt.pointerId)) {
+      draftCanvas.releasePointerCapture(evt.pointerId);
+    }
+  }
+
+  function setEraserMode(enabled) {
+    draftState.erasing = enabled;
+    eraserBtn.classList.toggle("active", enabled);
+    eraserBtn.setAttribute("aria-pressed", String(enabled));
+    draftDrawer.classList.toggle("eraser-mode", enabled);
+  }
+
+  draftToggle.addEventListener("click", () => setDraftOpen(!draftState.open));
+
+  colorSwatches.forEach(btn => {
+    btn.addEventListener("click", () => {
+      draftState.color = btn.dataset.color;
+      colorSwatches.forEach(swatch => swatch.classList.toggle("active", swatch === btn));
+      setEraserMode(false);
+    });
+  });
+
+  eraserBtn.addEventListener("click", () => setEraserMode(!draftState.erasing));
+
+  brushSize.addEventListener("input", () => {
+    draftState.size = parseInt(brushSize.value, 10) || 6;
+  });
+
+  clearDraftBtn.addEventListener("click", () => {
+    draftCtx.clearRect(0, 0, draftCanvas.width, draftCanvas.height);
+  });
+
+  draftCanvas.addEventListener("pointerdown", beginDraftStroke);
+  draftCanvas.addEventListener("pointermove", continueDraftStroke);
+  draftCanvas.addEventListener("pointerup", endDraftStroke);
+  draftCanvas.addEventListener("pointercancel", endDraftStroke);
+  window.addEventListener("resize", () => {
+    updateActionBarHeight();
+    if (draftState.open) resizeDraftCanvas();
+  });
+
+  if ("ResizeObserver" in window) {
+    const actionBarObserver = new ResizeObserver(updateActionBarHeight);
+    actionBarObserver.observe(actionBar);
+  }
+  updateActionBarHeight();
 
 })();

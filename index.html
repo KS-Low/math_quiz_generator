@@ -175,6 +175,42 @@
     <button id="gradeBtn" class="primary-btn" type="button">✅ 提交批改</button>
   </footer>
 
+  <button id="draftToggle" class="draft-toggle" type="button" aria-controls="draftDrawer" aria-expanded="false">
+    <span class="draft-toggle-icon">✎</span>
+    <span id="draftToggleText">草稿</span>
+  </button>
+
+  <section id="draftDrawer" class="draft-drawer" aria-hidden="true">
+    <div class="draft-tools" aria-label="草稿工具">
+      <div class="draft-tool-group color-tools" role="group" aria-label="画笔颜色">
+        <button class="color-swatch active" type="button" data-color="#1E3A5F" style="--swatch:#1E3A5F" aria-label="蓝色画笔"></button>
+        <button class="color-swatch" type="button" data-color="#D6423C" style="--swatch:#D6423C" aria-label="红色画笔"></button>
+        <button class="color-swatch" type="button" data-color="#2F8F5B" style="--swatch:#2F8F5B" aria-label="绿色画笔"></button>
+        <button class="color-swatch" type="button" data-color="#111827" style="--swatch:#111827" aria-label="黑色画笔"></button>
+      </div>
+      <button id="eraserBtn" class="draft-tool-btn icon-only" type="button" aria-label="橡皮" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 21h10" />
+          <path d="M21 11.5 12.5 3a2.1 2.1 0 0 0-3 0L3.7 8.8a2.1 2.1 0 0 0 0 3L11 19h4l6-6a2.1 2.1 0 0 0 0-1.5Z" />
+          <path d="m6.5 15.5 7-7" />
+        </svg>
+      </button>
+      <label class="draft-size-control">粗细
+        <input id="brushSize" type="range" min="2" max="24" value="6">
+      </label>
+      <button id="clearDraftBtn" class="draft-tool-btn icon-only danger" type="button" aria-label="清空草稿">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 6h18" />
+          <path d="M8 6V4h8v2" />
+          <path d="M19 6 18 20H6L5 6" />
+          <path d="M10 11v5" />
+          <path d="M14 11v5" />
+        </svg>
+      </button>
+    </div>
+    <canvas id="draftCanvas" class="draft-canvas" aria-label="草稿纸"></canvas>
+  </section>
+
 </div>
 
 <script src="script.js"></script>
