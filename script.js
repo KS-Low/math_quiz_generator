@@ -38,6 +38,18 @@
   const gradeBtn = document.getElementById("gradeBtn");
   const refreshBtn = document.getElementById("refreshBtn");
 
+  const historyToggle = document.getElementById("historyToggle");
+  const closeHistory = document.getElementById("closeHistory");
+  const historyModal = document.getElementById("historyModal");
+  const historyList = document.getElementById("historyList");
+  const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+  const storageWarning = document.getElementById("storageWarning");
+  const historyNameFilter = document.getElementById("historyNameFilter");
+
+  const nameInput = document.getElementById("nameInput");
+  const dateInput = document.getElementById("dateInput");
+  const nameHistoryDatalist = document.getElementById("nameHistoryList");
+
   let lastSettings = null;
   let currentQuestions = [];
 
@@ -113,6 +125,33 @@
       v = parseInt(rangeSelect.value, 10);
     }
     return v;
+  }
+
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
+
+  function getTodayDDMMYYYY() {
+    try {
+      const d = new Date();
+      const day = d.getDate();
+      const month = d.getMonth() + 1;
+      const year = d.getFullYear();
+      if (!day || !month || !year) throw new Error("invalid local date");
+      return `${pad2(day)}/${pad2(month)}/${year}`;
+    } catch (e) {
+      try {
+        const parts = new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Asia/Singapore", day: "2-digit", month: "2-digit", year: "numeric"
+        }).formatToParts(new Date());
+        const day = parts.find(p => p.type === "day").value;
+        const month = parts.find(p => p.type === "month").value;
+        const year = parts.find(p => p.type === "year").value;
+        return `${day}/${month}/${year}`;
+      } catch (e2) {
+        return "";
+      }
+    }
   }
 
   // ---------- Question generators ----------
@@ -232,12 +271,35 @@
     return list;
   }
 
+  // ---------- Shared formatting helpers ----------
+  const OP_LABELS = { add: "加法", sub: "减法", mul: "乘法", div: "除法" };
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str == null ? "" : String(str);
+    return div.innerHTML;
+  }
+
+  function buildEquationText(q) {
+    return `${q.a} ${q.opSymbol} ${q.b} =`;
+  }
+
+  function correctAnswerText(q) {
+    if (q.type === "div") {
+      return q.singleMode
+        ? `${q.correctAnswer.quotient}`
+        : `${q.correctAnswer.quotient} 余 ${q.correctAnswer.remainder}`;
+    }
+    return `${q.correctAnswer}`;
+  }
+
   // ---------- Rendering ----------
   function renderQuestions(list) {
     questionsGrid.innerHTML = "";
     summaryBanner.hidden = true;
     scoreLine.textContent = "――";
     scoreLine.classList.remove("done");
+    gradeBtn.disabled = false;
 
     list.forEach((q, idx) => {
       const card = document.createElement("div");
@@ -251,7 +313,7 @@
 
       const eq = document.createElement("span");
       eq.className = "q-equation";
-      eq.textContent = `${q.a} ${q.opSymbol} ${q.b} =`;
+      eq.textContent = buildEquationText(q);
       card.appendChild(eq);
 
       if (q.type === "div" && !q.singleMode) {
@@ -288,15 +350,194 @@
     });
   }
 
+  // ---------- History storage (localStorage) ----------
+  const HISTORY_KEY = "mathQuizHistory_v1";
+  const MAX_HISTORY_ENTRIES = 200;
+
+  function testStorageAvailable() {
+    try {
+      const k = "__storage_test__";
+      window.localStorage.setItem(k, "1");
+      window.localStorage.removeItem(k);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  const storageAvailable = testStorageAvailable();
+
+  function loadHistoryList() {
+    if (!storageAvailable) return [];
+    try {
+      const raw = window.localStorage.getItem(HISTORY_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      console.warn("读取历史记录失败", e);
+      return [];
+    }
+  }
+
+  function saveHistoryList(list) {
+    if (!storageAvailable) return;
+    try {
+      window.localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+    } catch (e) {
+      console.warn("保存历史记录失败", e);
+    }
+  }
+
+  function addHistoryEntry(entry) {
+    const list = loadHistoryList();
+    list.push(entry);
+    while (list.length > MAX_HISTORY_ENTRIES) list.shift();
+    saveHistoryList(list);
+  }
+
+  function deleteHistoryEntry(id) {
+    const list = loadHistoryList().filter(e => e.id !== id);
+    saveHistoryList(list);
+  }
+
+  function clearAllHistory() {
+    saveHistoryList([]);
+  }
+
+  function formatTimestamp(ts) {
+    const d = new Date(ts);
+    const pad = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  // ---------- Name history (localStorage) ----------
+  const NAME_HISTORY_KEY = "mathQuizNameHistory_v1";
+  const MAX_NAME_HISTORY = 5;
+
+  function loadNameHistory() {
+    if (!storageAvailable) return [];
+    try {
+      const raw = window.localStorage.getItem(NAME_HISTORY_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveNameHistory(list) {
+    if (!storageAvailable) return;
+    try {
+      window.localStorage.setItem(NAME_HISTORY_KEY, JSON.stringify(list));
+    } catch (e) {
+      console.warn("保存姓名历史失败", e);
+    }
+  }
+
+  function populateNameDatalist() {
+    const list = loadNameHistory();
+    nameHistoryDatalist.innerHTML = "";
+    list.forEach(n => {
+      const opt = document.createElement("option");
+      opt.value = n;
+      nameHistoryDatalist.appendChild(opt);
+    });
+  }
+
+  function recordName(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return;
+    let list = loadNameHistory();
+    list = list.filter(n => n !== trimmed);
+    list.unshift(trimmed);
+    if (list.length > MAX_NAME_HISTORY) list = list.slice(0, MAX_NAME_HISTORY);
+    saveNameHistory(list);
+    populateNameDatalist();
+  }
+
+  function initNameAndDate() {
+    populateNameDatalist();
+    const remembered = loadNameHistory();
+    if (remembered.length > 0 && !nameInput.value) {
+      nameInput.value = remembered[0];
+    }
+    if (!dateInput.value) {
+      dateInput.value = getTodayDDMMYYYY();
+    }
+  }
+
+  nameInput.addEventListener("blur", () => recordName(nameInput.value));
+
+  // ---------- Sound effects (Web Audio API, no external files) ----------
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      audioCtx = new Ctx();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playTone(ctx, freq, startTime, duration, type, gainPeak) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || "sine";
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime + startTime);
+    gain.gain.linearRampToValueAtTime(gainPeak, ctx.currentTime + startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + startTime + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(ctx.currentTime + startTime);
+    osc.stop(ctx.currentTime + startTime + duration + 0.05);
+  }
+
+  function playCelebrationSound() {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+    notes.forEach((f, i) => playTone(ctx, f, i * 0.12, 0.28, "triangle", 0.22));
+  }
+
+  function playEncourageSound() {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    // 中性、温和的两音提示——鼓励但不失落，也不喧宾夺主
+    playTone(ctx, 440, 0, 0.32, "sine", 0.14);
+    playTone(ctx, 523.25, 0.2, 0.38, "sine", 0.14);
+  }
+
+  // ---------- Confetti animation ----------
+  function triggerConfetti() {
+    const colors = ["#D6423C", "#2F8F5B", "#4A6FA5", "#E8A33D", "#1E3A5F"];
+    const container = document.createElement("div");
+    container.className = "confetti-container";
+    const count = 56;
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement("span");
+      piece.className = "confetti-piece";
+      piece.style.left = (Math.random() * 100) + "vw";
+      piece.style.background = colors[randInt(0, colors.length - 1)];
+      piece.style.width = (6 + Math.random() * 6) + "px";
+      piece.style.height = (10 + Math.random() * 8) + "px";
+      piece.style.borderRadius = Math.random() > 0.5 ? "50%" : "2px";
+      piece.style.animationDuration = (2 + Math.random() * 1.4) + "s";
+      piece.style.animationDelay = (Math.random() * 0.3) + "s";
+      container.appendChild(piece);
+    }
+    document.body.appendChild(container);
+    setTimeout(() => container.remove(), 4000);
+  }
+
   // ---------- Grading ----------
   function gradeAll() {
     let correctCount = 0;
     const total = currentQuestions.length;
+    const detailList = [];
 
     currentQuestions.forEach(q => {
       const card = questionsGrid.querySelector(`[data-id="${q.id}"]`);
       if (!card) return;
       let isCorrect = false;
+      let userAnswerText = "";
 
       if (q.type === "div" && !q.singleMode) {
         const qVal = card.querySelector('[data-role="quotient"]').value;
@@ -313,12 +554,17 @@
           (rVal !== "" || q.correctAnswer.remainder === 0) &&
           Number(qVal) === q.correctAnswer.quotient &&
           userRemainder === q.correctAnswer.remainder;
+
+        const displayRemainder = rVal !== "" ? rVal : (q.correctAnswer.remainder === 0 ? "0" : "?");
+        userAnswerText = (qVal === "" && rVal === "") ? "未作答" : `${qVal || "?"} 余 ${displayRemainder}`;
       } else if (q.type === "div") {
         const qVal = card.querySelector('[data-role="quotient"]').value;
         isCorrect = qVal !== "" && Number(qVal) === q.correctAnswer.quotient;
+        userAnswerText = qVal === "" ? "未作答" : qVal;
       } else {
         const val = card.querySelector('[data-role="answer"]').value;
         isCorrect = val !== "" && Number(val) === q.correctAnswer;
+        userAnswerText = val === "" ? "未作答" : val;
       }
 
       card.classList.add(isCorrect ? "correct" : "incorrect");
@@ -332,15 +578,16 @@
         mark.textContent = "✗";
         const reveal = document.createElement("span");
         reveal.className = "correct-answer-reveal";
-        if (q.type === "div") {
-          reveal.textContent = q.singleMode
-            ? `（正确答案：${q.correctAnswer.quotient}）`
-            : `（正确答案：${q.correctAnswer.quotient} 余 ${q.correctAnswer.remainder}）`;
-        } else {
-          reveal.textContent = `（正确答案：${q.correctAnswer}）`;
-        }
+        reveal.textContent = `（正确答案：${correctAnswerText(q)}）`;
         card.appendChild(reveal);
       }
+
+      detailList.push({
+        text: buildEquationText(q),
+        userAnswer: userAnswerText,
+        correctAnswer: correctAnswerText(q),
+        isCorrect
+      });
     });
 
     scoreLine.textContent = `${correctCount} / ${total}`;
@@ -354,23 +601,72 @@
     else if (pct >= 0.6) msg += " · 不错，再接再厉！";
     else msg += " · 多练习一下，会更好～";
     summaryBanner.textContent = msg;
+
+    gradeBtn.disabled = true;
+
+    if (lastSettings) {
+      const enteredName = nameInput.value.trim();
+      recordName(enteredName);
+      addHistoryEntry({
+        id: "h" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+        timestamp: Date.now(),
+        name: enteredName,
+        total,
+        correct: correctCount,
+        opsLabel: lastSettings.ops.map(o => OP_LABELS[o]).join("、"),
+        rangeLabel: `${lastSettings.rangeLimit} 以内`,
+        questions: detailList
+      });
+    }
+
+    if (pct >= 0.6) {
+      playCelebrationSound();
+      triggerConfetti();
+    } else {
+      playEncourageSound();
+    }
   }
 
   // ---------- Panel open/close ----------
-  function openPanel() {
-    settingsPanel.classList.add("open");
-    settingsPanel.setAttribute("aria-hidden", "false");
-    overlay.hidden = false;
+  function anyPanelOpen() {
+    return settingsPanel.classList.contains("open") || historyModal.classList.contains("open");
   }
-  function closePanel() {
-    settingsPanel.classList.remove("open");
-    settingsPanel.setAttribute("aria-hidden", "true");
-    overlay.hidden = true;
+  function syncOverlay() {
+    overlay.hidden = !anyPanelOpen();
   }
 
-  settingsToggle.addEventListener("click", openPanel);
-  closeSettings.addEventListener("click", closePanel);
-  overlay.addEventListener("click", closePanel);
+  function openSettingsPanel() {
+    settingsPanel.classList.add("open");
+    settingsPanel.setAttribute("aria-hidden", "false");
+    syncOverlay();
+  }
+  function closeSettingsPanel() {
+    settingsPanel.classList.remove("open");
+    settingsPanel.setAttribute("aria-hidden", "true");
+    syncOverlay();
+  }
+
+  function openHistoryPanel() {
+    historyNameFilter.value = "";
+    renderHistoryList();
+    historyModal.classList.add("open");
+    historyModal.setAttribute("aria-hidden", "false");
+    syncOverlay();
+  }
+  function closeHistoryPanel() {
+    historyModal.classList.remove("open");
+    historyModal.setAttribute("aria-hidden", "true");
+    syncOverlay();
+  }
+
+  settingsToggle.addEventListener("click", openSettingsPanel);
+  closeSettings.addEventListener("click", closeSettingsPanel);
+  historyToggle.addEventListener("click", openHistoryPanel);
+  closeHistory.addEventListener("click", closeHistoryPanel);
+  overlay.addEventListener("click", () => {
+    closeSettingsPanel();
+    closeHistoryPanel();
+  });
 
   rangeSelect.addEventListener("change", () => {
     rangeCustom.hidden = rangeSelect.value !== "custom";
@@ -386,6 +682,107 @@
   }
   opChecks.forEach(c => c.addEventListener("change", refreshOpVisibility));
   refreshOpVisibility();
+  initNameAndDate();
+
+  // ---------- History list rendering ----------
+  function renderHistoryList() {
+    storageWarning.hidden = storageAvailable;
+    clearHistoryBtn.hidden = !storageAvailable;
+
+    const filterVal = historyNameFilter.value.trim().toLowerCase();
+    let list = loadHistoryList().slice().reverse(); // 最新的在最上面
+    if (filterVal) {
+      list = list.filter(e => (e.name || "").toLowerCase().includes(filterVal));
+    }
+    historyList.innerHTML = "";
+
+    if (list.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "history-empty";
+      if (!storageAvailable) {
+        empty.textContent = "当前环境无法保存历史记录。";
+      } else if (filterVal) {
+        empty.textContent = `没有找到姓名包含「${historyNameFilter.value.trim()}」的历史记录。`;
+      } else {
+        empty.textContent = "还没有历史记录，完成一次批改后会自动保存在这里。";
+      }
+      historyList.appendChild(empty);
+      return;
+    }
+
+    list.forEach(entry => {
+      const pct = entry.total > 0 ? entry.correct / entry.total : 0;
+      const wrap = document.createElement("div");
+      wrap.className = "history-entry";
+
+      const top = document.createElement("div");
+      top.className = "history-entry-top";
+
+      const header = document.createElement("button");
+      header.type = "button";
+      header.className = "history-entry-header";
+      const nameHtml = entry.name
+        ? `<span class="history-name">👤 ${escapeHtml(entry.name)}</span>`
+        : "";
+      header.innerHTML = `
+        <span class="history-left">
+          ${nameHtml}
+          <span class="history-date">${formatTimestamp(entry.timestamp)}</span>
+        </span>
+        <span class="history-right">
+          <span class="history-score ${pct >= 0.6 ? "high" : "low"}">${entry.correct} / ${entry.total}</span>
+          <span class="history-caret">▾</span>
+        </span>
+      `;
+
+      const detail = document.createElement("div");
+      detail.className = "history-entry-detail";
+      detail.hidden = true;
+
+      const meta = document.createElement("div");
+      meta.className = "history-meta";
+      meta.textContent = `运算：${entry.opsLabel || "—"} · 范围：${entry.rangeLabel || "—"}`;
+      detail.appendChild(meta);
+
+      (entry.questions || []).forEach((qd, i) => {
+        const line = document.createElement("div");
+        line.className = "history-q" + (qd.isCorrect ? " correct" : " incorrect");
+        line.innerHTML = `<span>${i + 1}. ${qd.text} ${qd.isCorrect ? qd.correctAnswer : ""}</span>` +
+          `<span class="history-q-user">${qd.isCorrect ? "✓ 你答：" + qd.userAnswer : "✗ 你答：" + qd.userAnswer + "（正确：" + qd.correctAnswer + "）"}</span>`;
+        detail.appendChild(line);
+      });
+
+      header.addEventListener("click", () => {
+        const isHidden = detail.hidden;
+        detail.hidden = !isHidden;
+        wrap.classList.toggle("expanded", isHidden);
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "history-delete-btn";
+      delBtn.textContent = "删除";
+      delBtn.addEventListener("click", () => {
+        deleteHistoryEntry(entry.id);
+        renderHistoryList();
+      });
+
+      top.appendChild(header);
+      top.appendChild(delBtn);
+      wrap.appendChild(top);
+      wrap.appendChild(detail);
+      historyList.appendChild(wrap);
+    });
+  }
+
+  historyNameFilter.addEventListener("input", renderHistoryList);
+
+  clearHistoryBtn.addEventListener("click", () => {
+    if (window.confirm("确定要清空全部历史记录吗？此操作无法撤销。")) {
+      clearAllHistory();
+      renderHistoryList();
+    }
+  });
 
   // ---------- Generate / Grade / Refresh ----------
   function doGenerate() {
@@ -399,7 +796,7 @@
     emptyState.hidden = true;
     renderQuestions(currentQuestions);
     actionBar.hidden = false;
-    closePanel();
+    closeSettingsPanel();
   }
 
   generateBtn.addEventListener("click", doGenerate);

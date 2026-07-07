@@ -16,9 +16,14 @@
 
   <header class="toolbar">
     <div class="brand"><span class="brand-mark">✎</span>口算练习生成器</div>
-    <button id="settingsToggle" class="icon-btn" type="button">
-      <span class="gear">⚙</span> 设置
-    </button>
+    <div class="toolbar-actions">
+      <button id="historyToggle" class="icon-btn" type="button">
+        <span class="gear">📜</span><span class="btn-label"> 历史</span>
+      </button>
+      <button id="settingsToggle" class="icon-btn" type="button">
+        <span class="gear">⚙</span><span class="btn-label"> 设置</span>
+      </button>
+    </div>
   </header>
 
   <div id="overlay" class="overlay" hidden></div>
@@ -128,12 +133,27 @@
     </div>
   </aside>
 
+  <div id="historyModal" class="history-modal" aria-hidden="true">
+    <div class="history-modal-inner">
+      <div class="settings-header">
+        <h2>历史记录</h2>
+        <button id="closeHistory" class="icon-btn plain" type="button" aria-label="关闭">✕</button>
+      </div>
+      <p class="hint small" id="storageWarning" hidden>当前浏览器环境不支持本地存储（可能处于隐私/无痕模式），历史记录暂时无法保存。</p>
+      <div class="history-actions">
+        <input type="text" id="historyNameFilter" class="history-filter-input" placeholder="🔍 按姓名筛选…">
+        <button id="clearHistoryBtn" class="secondary-btn danger" type="button">🗑 清空历史记录</button>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+  </div>
+
   <main class="worksheet-wrap">
     <div class="worksheet" id="worksheet">
 
       <div class="worksheet-header">
-        <label class="field">姓名 <input type="text" class="underline-input" id="nameInput" placeholder=""></label>
-        <label class="field">日期 <input type="text" class="underline-input" id="dateInput" placeholder=""></label>
+        <label class="field">姓名 <input type="text" class="underline-input" id="nameInput" placeholder="" list="nameHistoryList" autocomplete="off"><datalist id="nameHistoryList"></datalist></label>
+        <label class="field">日期 <input type="text" class="underline-input" id="dateInput" placeholder="" inputmode="numeric"></label>
         <div class="field score-field">得分 <span class="underline-static" id="scoreLine">――</span></div>
       </div>
 
