@@ -796,7 +796,6 @@
     emptyState.hidden = true;
     renderQuestions(currentQuestions);
     actionBar.hidden = false;
-    requestAnimationFrame(updateActionBarHeight);
     closeSettingsPanel();
   }
 
@@ -833,14 +832,6 @@
     lastX: 0,
     lastY: 0
   };
-
-  function updateActionBarHeight() {
-    if (actionBar.hidden) return;
-    const height = Math.ceil(actionBar.getBoundingClientRect().height);
-    if (height > 0) {
-      document.documentElement.style.setProperty("--action-bar-height", `${height}px`);
-    }
-  }
 
   function resizeDraftCanvas() {
     const rect = draftCanvas.getBoundingClientRect();
@@ -961,14 +952,7 @@
   draftCanvas.addEventListener("pointerup", endDraftStroke);
   draftCanvas.addEventListener("pointercancel", endDraftStroke);
   window.addEventListener("resize", () => {
-    updateActionBarHeight();
     if (draftState.open) resizeDraftCanvas();
   });
-
-  if ("ResizeObserver" in window) {
-    const actionBarObserver = new ResizeObserver(updateActionBarHeight);
-    actionBarObserver.observe(actionBar);
-  }
-  updateActionBarHeight();
 
 })();

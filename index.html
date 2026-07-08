@@ -170,15 +170,17 @@
     </div>
   </main>
 
-  <footer class="action-bar" id="actionBar" hidden>
-    <button id="refreshBtn" class="secondary-btn" type="button">🔄 换一批（同条件）</button>
-    <button id="gradeBtn" class="primary-btn" type="button">✅ 提交批改</button>
-  </footer>
+  <div id="bottomDock" class="bottom-dock">
+    <button id="draftToggle" class="draft-toggle" type="button" aria-controls="draftDrawer" aria-expanded="false">
+      <span class="draft-toggle-icon">✎</span>
+      <span id="draftToggleText">草稿</span>
+    </button>
 
-  <button id="draftToggle" class="draft-toggle" type="button" aria-controls="draftDrawer" aria-expanded="false">
-    <span class="draft-toggle-icon">✎</span>
-    <span id="draftToggleText">草稿</span>
-  </button>
+    <footer class="action-bar" id="actionBar" hidden>
+      <button id="refreshBtn" class="secondary-btn" type="button">🔄 换一批（同条件）</button>
+      <button id="gradeBtn" class="primary-btn" type="button">✅ 提交批改</button>
+    </footer>
+  </div>
 
   <section id="draftDrawer" class="draft-drawer" aria-hidden="true">
     <div class="draft-tools" aria-label="草稿工具">

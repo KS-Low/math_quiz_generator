@@ -20,7 +20,6 @@
   --draft-width: 33.333vw;
   --draft-height: 33.333vh;
   --draft-height: 33.333dvh;
-  --action-bar-height: 62px;
 }
 
 *{ box-sizing: border-box; }
@@ -249,7 +248,7 @@ select:focus, input:focus{
   flex:1;
   display:flex;
   justify-content:center;
-  padding: 24px 14px 100px;
+  padding: 24px 14px 190px;
 }
 .worksheet{
   width:100%;
@@ -618,29 +617,42 @@ select:focus, input:focus{
   .confetti-piece{ animation: none; display:none; }
 }
 
-/* ---------- Action bar ---------- */
-.action-bar{
+/* ---------- Action bar + Draft toggle (unified bottom dock) ---------- */
+/* Stacked via flexbox inside one fixed container so the toggle button can
+   never visually overlap the action bar underneath it, regardless of how
+   tall the action bar becomes (e.g. button text wrapping to two lines). */
+.bottom-dock{
   position:fixed;
-  bottom:0; left:0; right:0;
+  left:0; right:0; bottom:0;
+  z-index:26;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:10px;
+  padding: 0 18px 10px;
+  pointer-events:none;
+  transition: right 0.28s ease, bottom 0.28s ease;
+}
+.bottom-dock > *{ pointer-events:auto; }
+
+.action-bar{
+  align-self:stretch;
   background:#fff;
   border-top:1.5px solid var(--card-border);
   padding: 12px 16px;
   display:flex;
   gap:12px;
   justify-content:center;
-  z-index:15;
   box-shadow: 0 -4px 14px rgba(0,0,0,0.06);
-  transition: right 0.28s ease, bottom 0.28s ease;
+  margin:0 -18px;
+  width:calc(100% + 36px);
 }
 .action-bar button{ flex:1; max-width:260px; }
-body.draft-open .action-bar{ right:var(--draft-width); }
 
-/* ---------- Draft drawer ---------- */
+body.draft-open .bottom-dock{ right: var(--draft-width); }
+
+/* ---------- Draft toggle button ---------- */
 .draft-toggle{
-  position:fixed;
-  right:18px;
-  bottom:calc(var(--action-bar-height) + 12px);
-  z-index:25;
   display:flex;
   align-items:center;
   gap:7px;
@@ -655,11 +667,10 @@ body.draft-open .action-bar{ right:var(--draft-width); }
   font-weight:700;
   font-size:0.95rem;
   cursor:pointer;
-  transition:right 0.28s ease, bottom 0.28s ease, background 0.15s ease, transform 0.1s ease;
+  transition: background 0.15s ease, transform 0.1s ease;
 }
 .draft-toggle:hover{ background:#28497A; }
 .draft-toggle:active{ transform:scale(0.97); }
-.draft-toggle.open{ right:calc(var(--draft-width) + 12px); }
 .draft-toggle-icon{
   font-family:var(--font-hand);
   font-weight:var(--font-hand-weight);
@@ -783,13 +794,9 @@ body.draft-open .action-bar{ right:var(--draft-width); }
     padding-right:0;
     padding-bottom:var(--draft-height);
   }
-  body.draft-open .action-bar{
+  body.draft-open .bottom-dock{
     right:0;
     bottom:var(--draft-height);
-  }
-  .draft-toggle.open{
-    right:18px;
-    bottom:calc(var(--draft-height) + var(--action-bar-height) + 10px);
   }
   .draft-drawer{
     top:auto;
@@ -813,8 +820,7 @@ body.draft-open .action-bar{ right:var(--draft-width); }
   .q-equation{ font-size:1.15rem; }
   .answer-input{ font-size:1.1rem; width:54px; }
   .action-bar button{ max-width:none; }
-  .draft-toggle{ right:12px; }
-  .draft-toggle.open{ right:12px; }
+  .bottom-dock{ padding-right:12px; }
   .draft-tools{
     justify-content:flex-start;
     gap:8px;
