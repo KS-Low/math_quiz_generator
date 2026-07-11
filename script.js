@@ -244,28 +244,52 @@
     };
   }
 
+  function generateOne(type, i, settings) {
+    let q = { id: "q" + i + "_" + Math.random().toString(36).slice(2, 7), type };
+    if (type === "add") {
+      const r = generateAddition(settings.rangeLimit, settings.add.carry);
+      q.a = r.a; q.b = r.b; q.correctAnswer = r.answer; q.opSymbol = "＋";
+    } else if (type === "sub") {
+      const r = generateSubtraction(settings.rangeLimit, settings.sub.borrow, settings.sub.allowNegative);
+      q.a = r.a; q.b = r.b; q.correctAnswer = r.answer; q.opSymbol = "－";
+    } else if (type === "mul") {
+      const r = generateMultiplication(settings.rangeLimit, settings.mul.d1, settings.mul.d2, settings.mul.carry);
+      q.a = r.a; q.b = r.b; q.correctAnswer = r.answer; q.opSymbol = "×";
+    } else if (type === "div") {
+      const r = generateDivision(settings.rangeLimit, settings.div.remainder);
+      q.a = r.dividend; q.b = r.divisor;
+      q.opSymbol = "÷";
+      q.singleMode = settings.div.remainder === "none";
+      q.correctAnswer = { quotient: r.quotient, remainder: r.remainder };
+    }
+    return q;
+  }
+
+  function questionSignature(q) {
+    return q.type + "_" + q.a + "_" + q.b;
+  }
+
+  // 每题最多重试这么多次以避开重复，题量空间不够时才允许保留重复题
+  const MAX_DEDUP_ATTEMPTS = 200;
+
   function buildQuestions(settings) {
     const list = [];
-    for (let i = 0; i < settings.count; i++) {
-      const type = settings.ops[randInt(0, settings.ops.length - 1)];
-      let q = { id: "q" + i + "_" + Math.random().toString(36).slice(2, 7), type };
+    const usedSignatures = new Set();
 
-      if (type === "add") {
-        const r = generateAddition(settings.rangeLimit, settings.add.carry);
-        q.a = r.a; q.b = r.b; q.correctAnswer = r.answer; q.opSymbol = "＋";
-      } else if (type === "sub") {
-        const r = generateSubtraction(settings.rangeLimit, settings.sub.borrow, settings.sub.allowNegative);
-        q.a = r.a; q.b = r.b; q.correctAnswer = r.answer; q.opSymbol = "－";
-      } else if (type === "mul") {
-        const r = generateMultiplication(settings.rangeLimit, settings.mul.d1, settings.mul.d2, settings.mul.carry);
-        q.a = r.a; q.b = r.b; q.correctAnswer = r.answer; q.opSymbol = "×";
-      } else if (type === "div") {
-        const r = generateDivision(settings.rangeLimit, settings.div.remainder);
-        q.a = r.dividend; q.b = r.divisor;
-        q.opSymbol = "÷";
-        q.singleMode = settings.div.remainder === "none";
-        q.correctAnswer = { quotient: r.quotient, remainder: r.remainder };
+    for (let i = 0; i < settings.count; i++) {
+      let q = null;
+      for (let attempt = 0; attempt < MAX_DEDUP_ATTEMPTS; attempt++) {
+        const type = settings.ops[randInt(0, settings.ops.length - 1)];
+        const candidate = generateOne(type, i, settings);
+        if (!usedSignatures.has(questionSignature(candidate))) {
+          q = candidate;
+          break;
+        }
       }
+      if (!q) {
+        q = generateOne(settings.ops[randInt(0, settings.ops.length - 1)], i, settings);
+      }
+      usedSignatures.add(questionSignature(q));
       list.push(q);
     }
     return list;
